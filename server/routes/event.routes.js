@@ -21,5 +21,7 @@ module.exports = function (app) {
     app.get("/api/events", controller.getAllEvents);
     app.get("/api/events/banners", controller.getEventBanners);
     app.get("/api/events/:id", controller.getEventById);
+    app.get("/api/events/:id/poster", controller.getEventPoster);
+    app.get("/api/events/:id/banner", controller.getEventBanner); // New Banner Endpoint
     app.delete("/api/events/:id", [authJwt.verifyToken, authJwt.isAdmin], controller.deleteEvent);
 };

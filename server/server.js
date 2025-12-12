@@ -39,22 +39,43 @@ async function seedEvents() {
         }
 
         const files = fs.readdirSync(assetsDir).filter(file => file.match(/\.(jpeg|jpg|png)$/i));
-        const eventCount = await Event.countDocuments();
 
-        // If we have fewer events than files, assume we need to re-seed (or if forced reset)
-        // For this dev session, let's force reset to ensure all images are loaded correctly.
-        // Only seed if the database is empty to prevent overwriting new events
-        if (eventCount === 0) {
-            console.log(`Seeding events from ${assetsDir}...`);
+        console.log(`Syncing event images from ${assetsDir}...`);
 
-            const eventsToInsert = [];
-            const today = new Date();
-            const categories = ["Concert", "Workshop", "Cultural", "Tech", "Competition"];
+        const today = new Date();
+        const categories = ["Concert", "Workshop", "Cultural", "Tech", "Competition"];
 
-            files.forEach((file, index) => {
-                const title = file.replace(/\.[^/.]+$/, "").replace(/([A-Z])/g, ' $1').trim(); // "RockABlast.jpeg" -> "Rock A Blast"
-                const filePath = path.join(assetsDir, file);
-                const imageBuffer = fs.readFileSync(filePath);
+        for (let index = 0; index < files.length; index++) {
+            const file = files[index];
+            const title = file.replace(/\.[^/.]+$/, "").replace(/([A-Z])/g, ' $1').trim(); // "RockABlast.jpeg" -> "Rock A Blast"
+            const filePath = path.join(assetsDir, file);
+            const imageBuffer = fs.readFileSync(filePath);
+
+            // Check if event exists
+            let event = await Event.findOne({ title: new RegExp(`^${title}$`, 'i') });
+
+            if (event) {
+                // Update images for existing event
+                let modified = false;
+
+                // Check if we need to update to avoid unnecessary writes
+                // (Simple check: if missing or doesn't look like a buffer)
+                if (!event.poster || !event.poster.data || !event.banner || !event.banner.data) {
+                    console.log(`Updating images for: ${title}`);
+                    event.poster = { data: imageBuffer, contentType: 'image/jpeg' };
+                    event.banner = { data: imageBuffer, contentType: 'image/jpeg' };
+                    await event.save();
+                } else {
+                    // Force update if requested, or just assume it's good. 
+                    // User said "update that database to already uploaded images", so let's force it this time.
+                    // console.log(`Refreshing images for: ${title}`);
+                    event.poster = { data: imageBuffer, contentType: 'image/jpeg' };
+                    event.banner = { data: imageBuffer, contentType: 'image/jpeg' };
+                    await event.save();
+                }
+            } else {
+                console.log(`Creating new event: ${title}`);
+                // Create new event logic
 
                 // Distribute dates: 1 event every 3 days starting next week
                 const eventDate = new Date(today);
@@ -70,7 +91,7 @@ async function seedEvents() {
                     { name: "Silver", price: 200 + (index * 20), rows: 8, cols: 15 }
                 ].reduce((acc, curr) => acc + (curr.rows * curr.cols), 0);
 
-                eventsToInsert.push({
+                const newEvent = new Event({
                     title: title,
                     description: `Experience the thrill of ${title}. Join us for an unforgettable event!`,
                     category: categories[index % categories.length],
@@ -93,13 +114,11 @@ async function seedEvents() {
                     totalCapacity: totalCapacity,
                     status: "UPCOMING"
                 });
-            });
-
-            await Event.insertMany(eventsToInsert);
-            console.log(`Successfully seeded ${eventsToInsert.length} events from assets.`);
-        } else {
-            console.log("Events already exist. Skipping seed to preserve data.");
+                await newEvent.save();
+            }
         }
+        console.log("Event sync complete.");
+
     } catch (error) {
         console.error("Error seeding events:", error);
     }

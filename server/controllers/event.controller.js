@@ -49,8 +49,8 @@ exports.createEvent = async (req, res) => {
 
 exports.getAllEvents = async (req, res) => {
     try {
-        // Fetch ALL events (including COMPLETED/expired) so the user can see everything in the DB
-        let events = await Event.find({}).sort({ date: 1 });
+        // Fetch ALL events but EXCLUDE both banner AND poster data to make the response tiny and fast
+        let events = await Event.find({}).sort({ date: 1 }).select('-banner -poster');
 
         const now = new Date();
         const updates = [];
@@ -80,6 +80,35 @@ exports.getAllEvents = async (req, res) => {
     }
 };
 
+exports.getEventPoster = async (req, res) => {
+    try {
+        const event = await Event.findById(req.params.id).select('poster');
+        if (!event || !event.poster || !event.poster.data) {
+            // Return a 404 or a default placeholder if needed
+            return res.status(404).send('Poster not found');
+        }
+
+        res.set('Content-Type', event.poster.contentType || 'image/jpeg');
+        res.send(event.poster.data);
+    } catch (error) {
+        res.status(500).send({ message: "Error fetching poster" });
+    }
+};
+
+exports.getEventBanner = async (req, res) => {
+    try {
+        const event = await Event.findById(req.params.id).select('banner');
+        if (!event || !event.banner || !event.banner.data) {
+            return res.status(404).send('Banner not found');
+        }
+
+        res.set('Content-Type', event.banner.contentType || 'image/jpeg');
+        res.send(event.banner.data);
+    } catch (error) {
+        res.status(500).send({ message: "Error fetching banner" });
+    }
+};
+
 exports.getEventById = async (req, res) => {
     try {
         // const { getDynamicPricing } = require("../services/pricing.service");
@@ -95,16 +124,13 @@ exports.getEventById = async (req, res) => {
         eventResponse.currentMultiplier = 1; // Default
         eventResponse.predictedDemand = 0; // Default
 
-        // Debug: Check if banner exists
-        if (eventResponse.banner && eventResponse.banner.data) {
-            // Buffer data might come as a Buffer object or { type: 'Buffer', data: [...] } from toObject()
-            // Depending on Mongoose version, accessing .length directly on the object might work if it's a raw Buffer, 
-            // otherwise check .data.length or similar if it's the JSON representation.
-            const size = eventResponse.banner.data.length || (eventResponse.banner.data.buffer ? eventResponse.banner.data.buffer.byteLength : 'Unknown');
-            console.log(`Event ${eventResponse._id} has Banner data. Size: ${size}`);
-        } else {
-            console.log(`Event ${eventResponse._id} missing Banner data.`);
-        }
+        // Optimizing payload: Remove heavy buffers, add flags
+        eventResponse.hasBanner = !!(eventResponse.banner && eventResponse.banner.data);
+        eventResponse.hasPoster = !!(eventResponse.poster && eventResponse.poster.data);
+
+        // Remove the heavy data from the JSON response
+        if (eventResponse.banner) delete eventResponse.banner.data;
+        if (eventResponse.poster) delete eventResponse.poster.data;
 
         res.status(200).send(eventResponse);
     } catch (error) {

@@ -32,16 +32,26 @@ const BookingsPage = () => {
     }, []);
 
     return (
-        <div className='min-h-screen bg-zinc-950 text-white selection:bg-rose-500/30 pt-20 pb-10'>
+        <div className='min-h-screen bg-zinc-950 text-white selection:bg-rose-500/30 pb-10'>
             <Header NavigationItems={NavItems} />
-            <div className="container mx-auto px-6 max-w-6xl">
-                <div className="flex items-center justify-between mb-8">
-                    <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">My Bookings</h1>
-                    <div className="text-sm text-zinc-500">
+
+            {/* Wide Hero Banner */}
+            <div className="relative h-[300px] w-full overflow-hidden flex items-center justify-center bg-zinc-900 border-b border-white/5">
+                {/* Abstract Background */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/40 via-zinc-950 to-zinc-950"></div>
+                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light" />
+
+                <div className="container mx-auto px-6 relative z-10 pt-20">
+                    <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400 mb-2">
+                        My Bookings
+                    </h1>
+                    <div className="text-zinc-400 text-lg">
                         {bookings.length} {bookings.length === 1 ? 'Experience' : 'Experiences'} unlocked
                     </div>
                 </div>
+            </div>
 
+            <div className="container mx-auto px-6 max-w-6xl -mt-10 relative z-20">
                 {loading ? (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
                         {[1, 2].map(i => (
@@ -49,24 +59,26 @@ const BookingsPage = () => {
                         ))}
                     </div>
                 ) : bookings.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-                        <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mb-4">
+                    <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/50 border border-white/5 rounded-3xl backdrop-blur-md">
+                        <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mb-4">
                             <svg className="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
                         </div>
-                        <p className="text-lg">No bookings yet</p>
-                        <a href="/user" className="mt-4 text-rose-500 hover:text-rose-400 text-sm font-medium">Explore Events &rarr;</a>
+                        <p className="text-lg text-zinc-300">No bookings yet</p>
+                        <a href="/user" className="mt-4 px-6 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-sm font-medium transition-all">
+                            Explore Events &rarr;
+                        </a>
                     </div>
                 ) : (
                     <div className="grid gap-6 lg:grid-cols-2">
                         {bookings.map((booking) => (
-                            <div key={booking._id} className="relative group bg-zinc-900 border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 transition-all duration-300 flex flex-col sm:flex-row">
+                            <div key={booking._id} className="relative group bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 transition-all duration-300 flex flex-col sm:flex-row hover:shadow-2xl hover:shadow-black/50">
                                 {/* Left Side: Event Details */}
                                 <div className="flex-1 p-6 relative">
                                     <div className="flex justify-between items-start mb-4">
                                         <div>
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${booking.status === 'CONFIRMED'
-                                                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                                                    : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                                : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
                                                 }`}>
                                                 {booking.status}
                                             </span>
@@ -96,12 +108,12 @@ const BookingsPage = () => {
                                     </div>
 
                                     {/* Perforation Circles (Visual) */}
-                                    <div className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-zinc-950 rounded-full sm:block hidden"></div>
+                                    <div className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-zinc-950 rounded-full sm:block hidden border-l border-white/10"></div>
                                 </div>
 
                                 {/* Right Side: QR & Actions */}
                                 <div className="sm:w-48 bg-white/5 backdrop-blur-sm border-l border-white/5 p-6 flex flex-col items-center justify-center gap-4 relative">
-                                    <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-zinc-950 rounded-full sm:block hidden"></div>
+                                    <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-zinc-950 rounded-full sm:block hidden border-r border-white/10"></div>
 
                                     {/* QR Code */}
                                     <div className="w-24 h-24 bg-white rounded-lg p-1">

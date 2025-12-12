@@ -32,30 +32,7 @@ const Event = ({ searchQuery = '' }) => {
     fetchEvents()
   }, [])
 
-  const bufferToBase64 = (buffer) => {
-    if (!buffer) return '';
-    try {
-      // Handle MongoDB Buffer object format { type: 'Buffer', data: [...] }
-      if (buffer.type === 'Buffer' && Array.isArray(buffer.data)) {
-        buffer = buffer.data;
-      }
 
-      // Handle raw array
-      if (Array.isArray(buffer)) {
-        let binary = '';
-        const bytes = new Uint8Array(buffer);
-        const len = bytes.byteLength;
-        for (let i = 0; i < len; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        return window.btoa(binary);
-      }
-    } catch (e) {
-      console.error("Error converting buffer to base64:", e);
-      return '';
-    }
-    return '';
-  };
 
   const filteredEvents = eventData.filter(data =>
     !searchQuery ||
@@ -96,9 +73,7 @@ const Event = ({ searchQuery = '' }) => {
             const day = eventDate.getDate();
             const month = eventDate.toLocaleString('default', { month: 'short' });
 
-            const imageSrc = data.poster && data.poster.data
-              ? `data:${data.poster.contentType || 'image/jpeg'};base64,${typeof window !== 'undefined' ? bufferToBase64(data.poster.data) : ''}`
-              : null;
+            const imageSrc = `${config.API_URL}/events/${data._id}/poster`;
 
             return (
               <motion.div

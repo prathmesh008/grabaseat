@@ -327,17 +327,16 @@ const EventDetailsPage = () => {
         { label: 'My Bookings', url: '/user/bookings', icons: '' }
     ];
 
-    // Helper to get image source safely
+    // Updated Image Loader using direct API URLs (Lazy Loading)
     const getHeroImageSrc = () => {
-        // Prioritize Banner
-        if (event.banner && event.banner.data) {
-            return bufferToUrl(event.banner.data, event.banner.contentType);
+        // Use flags from backend to determine availability
+        if (event.hasBanner) {
+            return `${API_URL}/events/${id}/banner`;
         }
-        // Fallback to Poster
-        if (event.poster && event.poster.data) {
-            return bufferToUrl(event.poster.data, event.poster.contentType);
+        if (event.hasPoster) {
+            return `${API_URL}/events/${id}/poster`;
         }
-        return null;
+        return null; // Triggers fallback UI
     }
 
     const bannerSrc = getHeroImageSrc();
