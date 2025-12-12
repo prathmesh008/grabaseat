@@ -49,7 +49,31 @@ exports.createEvent = async (req, res) => {
 
 exports.getAllEvents = async (req, res) => {
     try {
-        const events = await Event.find({ status: "UPCOMING" }).sort({ date: 1 });
+        // Fetch ALL events (including COMPLETED/expired) so the user can see everything in the DB
+        let events = await Event.find({}).sort({ date: 1 });
+
+        const now = new Date();
+        const updates = [];
+
+        for (const event of events) {
+            const eventDateTime = new Date(event.date);
+            if (event.time && event.time.includes(':')) {
+                const [hours, minutes] = event.time.split(':').map(Number);
+                eventDateTime.setHours(hours, minutes, 0, 0);
+            }
+
+            // If past date, mark COMPLETED in background, but still return it to frontend
+            if (now > eventDateTime && event.status !== "COMPLETED") {
+                event.status = "COMPLETED";
+                updates.push(event.save());
+            }
+        }
+
+        // Execute status updates in parallel
+        if (updates.length > 0) {
+            Promise.all(updates).catch(err => console.error("Error auto-completing events:", err));
+        }
+
         res.status(200).send(events);
     } catch (error) {
         res.status(500).send({ message: "Error fetching events" });
@@ -58,17 +82,18 @@ exports.getAllEvents = async (req, res) => {
 
 exports.getEventById = async (req, res) => {
     try {
-        const { getDynamicPricing } = require("../services/pricing.service");
+        // const { getDynamicPricing } = require("../services/pricing.service");
         const event = await Event.findById(req.params.id);
         if (!event) return res.status(404).send({ message: "Event not found" });
 
-        // Calculate dynamic pricing
-        const pricingData = await getDynamicPricing(event);
+        // Calculate dynamic pricing (DISABLED)
+        // const pricingData = await getDynamicPricing(event);
+        console.log("Dynamic Pricing Disabled for getEventById. Defaulting to 1x.");
 
         // Convert to object and append dynamic (runtime) fields
         const eventResponse = event.toObject();
-        eventResponse.currentMultiplier = pricingData.multiplier;
-        eventResponse.predictedDemand = pricingData.predictedBookings;
+        eventResponse.currentMultiplier = 1; // Default
+        eventResponse.predictedDemand = 0; // Default
 
         // Debug: Check if banner exists
         if (eventResponse.banner && eventResponse.banner.data) {

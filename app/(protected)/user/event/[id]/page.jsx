@@ -34,6 +34,18 @@ const EventDetailsPage = () => {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [bookingResult, setBookingResult] = useState(null);
 
+    // Check if event has ended - Defined early to avoid Rule of Hooks violation
+    const isEventEnded = React.useMemo(() => {
+        if (!event) return false;
+        const now = new Date();
+        const eventDate = new Date(event.date);
+        if (event.time && event.time.includes(':')) {
+            const [hours, minutes] = event.time.split(':').map(Number);
+            eventDate.setHours(hours, minutes, 0, 0);
+        }
+        return now > eventDate || event.status === 'COMPLETED' || event.status === 'CANCELLED';
+    }, [event]);
+
     // Helper for safe buffer conversion to Blob URL (Faster & Safer than Base64)
     const bufferToUrl = (buffer, contentType = 'image/jpeg') => {
         if (!buffer) return null;
@@ -231,6 +243,8 @@ const EventDetailsPage = () => {
                     } catch (err) {
                         console.error("Booking Confirmation Error:", err);
                         toast.error("Payment successful but booking failed. Please contact support.");
+                    } finally {
+                        setBookingLoading(false);
                     }
                 },
                 prefill: {
@@ -288,7 +302,15 @@ const EventDetailsPage = () => {
         } catch (error) {
             console.error("Direct Booking error:", error);
             console.error("Full Error Response:", error.response);
-            toast.error(error.response?.data?.message || "Booking failed");
+
+            if (error.response?.status === 401) {
+                toast.error("Session Expired. Please Login Again.", {
+                    description: "Your security token is no longer valid."
+                });
+                // Optional: router.push('/login');
+            } else {
+                toast.error(error.response?.data?.message || "Booking failed");
+            }
         } finally {
             setBookingLoading(false);
         }
@@ -320,6 +342,9 @@ const EventDetailsPage = () => {
 
     const bannerSrc = getHeroImageSrc();
 
+
+
+
     return (
         <div className='min-h-screen bg-zinc-950 text-white selection:bg-rose-500/30 pb-20'>
             <Header NavigationItems={NavItems} />
@@ -331,7 +356,7 @@ const EventDetailsPage = () => {
                         src={bannerSrc}
                         alt={event.title}
                         fill
-                        className="object-cover"
+                        className={`object-cover ${isEventEnded ? 'grayscale' : ''} transition-all duration-500`}
                         priority
                         onError={(e) => {
                             console.error("Image Load Error:", e);
@@ -358,7 +383,11 @@ const EventDetailsPage = () => {
                                 <span className="px-3 py-1 bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md">
                                     {event.category}
                                 </span>
-                                {event.currentMultiplier > 1 && (
+                                {isEventEnded ? (
+                                    <span className="px-3 py-1 bg-zinc-500/20 text-zinc-400 border border-zinc-500/20 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+                                        Event Ended
+                                    </span>
+                                ) : event.currentMultiplier > 1 && (
                                     <span className="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></span>
                                         High Demand
@@ -411,9 +440,11 @@ const EventDetailsPage = () => {
 
                     {/* Right Column: Floating Booking Card */}
                     <div className="lg:col-span-5 h-full">
-                        <div className="sticky top-24 bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-2xl shadow-2xl p-6 lg:p-8">
+                        <div className={`sticky top-24 bg-zinc-900/60 backdrop-blur-xl border border-white/5 rounded-2xl shadow-2xl p-6 lg:p-8 ${isEventEnded ? 'opacity-75 pointer-events-none grayscale' : ''}`}>
                             <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-2xl font-bold text-white">Book Your Seats</h3>
+                                <h3 className="text-2xl font-bold text-white">
+                                    {isEventEnded ? "Booking Closed" : "Book Your Seats"}
+                                </h3>
                                 {selectedSeats.length > 0 && (
                                     <span className="text-xs font-mono text-rose-400 bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20">
                                         {selectedSeats.length} SEATS SELECTED
@@ -433,6 +464,7 @@ const EventDetailsPage = () => {
                                         return (
                                             <button
                                                 key={section._id}
+                                                disabled={isEventEnded}
                                                 onClick={() => {
                                                     setSelectedSection(section);
                                                     setSelectedSeats([]);
@@ -443,13 +475,14 @@ const EventDetailsPage = () => {
                                                         ? 'bg-rose-600/10 border-rose-500 text-white shadow-lg shadow-rose-500/10'
                                                         : 'bg-zinc-800/50 border-white/5 text-zinc-400 hover:bg-zinc-800 hover:border-white/10'
                                                     }
+                                                ${isEventEnded ? 'cursor-not-allowed opacity-50' : ''}
                                             `}
                                             >
                                                 <div className="flex flex-col items-center gap-1">
                                                     <span className={`text-sm font-medium ${isSelected ? 'text-rose-400' : ''}`}>{section.name}</span>
                                                     <div className="flex items-center gap-1.5">
                                                         <span className="text-lg font-bold">₹{dynamicPrice}</span>
-                                                        {event.currentMultiplier > 1 && (
+                                                        {!isEventEnded && event.currentMultiplier > 1 && (
                                                             <div className="group relative">
                                                                 <svg className="w-3.5 h-3.5 text-blue-400 cursor-help" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"></path></svg>
                                                                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 bg-zinc-900 border border-white/10 p-2 rounded-lg text-[10px] text-zinc-300 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-50">
@@ -489,7 +522,7 @@ const EventDetailsPage = () => {
                                             return (
                                                 <button
                                                     key={seatId}
-                                                    disabled={isBooked}
+                                                    disabled={isBooked || isEventEnded}
                                                     onClick={() => handleSeatClick(seatId)}
                                                     className={`
                                                         w-7 h-7 rounded-sm flex items-center justify-center text-[9px] font-medium transition-all duration-200
@@ -499,6 +532,7 @@ const EventDetailsPage = () => {
                                                                 ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-110 border border-emerald-400'
                                                                 : 'bg-zinc-800 text-zinc-400 border border-white/5 hover:border-white/20 hover:bg-zinc-700'
                                                         }
+                                                        ${isEventEnded ? 'cursor-not-allowed' : ''}
                                                     `}
                                                     title={seatId}
                                                 >
@@ -541,17 +575,25 @@ const EventDetailsPage = () => {
                                         text-white font-bold text-lg h-14 rounded-xl shadow-lg shadow-rose-500/25 
                                         transition-all active:scale-[0.98]
                                         ${bookingLoading ? 'opacity-80 cursor-wait' : ''}
+                                        ${isEventEnded ? 'opacity-50 cursor-not-allowed from-zinc-700 to-zinc-700 hover:from-zinc-700 hover:to-zinc-700 shadow-none' : ''}
                                     `}
                                     size="lg"
                                     isLoading={bookingLoading}
                                     onClick={() => handleBooking()}
-                                    disabled={selectedSeats.length === 0}
+                                    disabled={selectedSeats.length === 0 || isEventEnded}
                                 >
-                                    {bookingLoading ? 'Processing...' : `Pay & Book ${selectedSeats.length > 0 ? selectedSeats.length : ''} Ticket${selectedSeats.length !== 1 ? 's' : ''}`}
+                                    {isEventEnded
+                                        ? 'Event Ended'
+                                        : bookingLoading
+                                            ? 'Processing...'
+                                            : `Pay & Book ${selectedSeats.length > 0 ? selectedSeats.length : ''} Ticket${selectedSeats.length !== 1 ? 's' : ''}`
+                                    }
                                 </Button>
-                                <p className="text-center text-xs text-zinc-500 mt-2">
-                                    Secure payment powered by Razorpay
-                                </p>
+                                {!isEventEnded && (
+                                    <p className="text-center text-xs text-zinc-500 mt-2">
+                                        Secure payment powered by Razorpay
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>

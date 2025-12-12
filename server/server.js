@@ -1,7 +1,10 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-require("dotenv").config({ path: __dirname + '/.env' }); // Load environment variables explicitly
+const path = require('path');
+// Load env from server directory first, then root directory
+require("dotenv").config({ path: __dirname + '/.env' });
+require("dotenv").config({ path: path.join(__dirname, '../.env') });
 const mongoose = require("mongoose");
 const db = require("./model");
 const Role = db.role;
@@ -61,6 +64,12 @@ async function seedEvents() {
                 const hour = 10 + (index % 12); // 10 AM to 10 PM
                 const time = `${hour}:00`;
 
+                // Calculate Total Capacity
+                const totalCapacity = [
+                    { name: "Gold", price: 500 + (index * 50), rows: 5, cols: 10 },
+                    { name: "Silver", price: 200 + (index * 20), rows: 8, cols: 15 }
+                ].reduce((acc, curr) => acc + (curr.rows * curr.cols), 0);
+
                 eventsToInsert.push({
                     title: title,
                     description: `Experience the thrill of ${title}. Join us for an unforgettable event!`,
@@ -81,6 +90,7 @@ async function seedEvents() {
                         { name: "Silver", price: 200 + (index * 20), rows: 8, cols: 15 }
                     ],
                     basePrice: 200 + (index * 20),
+                    totalCapacity: totalCapacity,
                     status: "UPCOMING"
                 });
             });
@@ -129,7 +139,7 @@ async function initial() {
 }
 
 async function startServer() {
-    let mongoUri = process.env.MONGODB_URI;
+    let mongoUri = process.env.ATLAS_URI;
 
     // Try connecting to the provided URI or fallback to Memory Server
     try {
@@ -183,6 +193,11 @@ io.on("connection", (socket) => {
     socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
     });
+});
+
+// Basic API Route
+app.get("/api", (req, res) => {
+    res.json({ message: "Welcome to BookMySeat API" });
 });
 
 // routes

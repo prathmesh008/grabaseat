@@ -74,7 +74,7 @@ exports.signin = async (req, res) => {
       {
         id: user.id,
       },
-      secret,
+      process.env.JWT_SECRET,
       {
         algorithm: "HS256",
         allowInsecureKeySizes: true,

@@ -40,7 +40,7 @@ const eventSchema = new mongoose.Schema(
     basePrice: { type: Number, required: true }, // The starting price
     minPrice: { type: Number, default: 0 },      // Lowest it can go
     maxPrice: { type: Number, default: 1000 },   // Highest it can go
-    totalCapacity: { type: Number, required: true },
+    totalCapacity: { type: Number, default: 0 },
     soldCount: { type: Number, default: 0 },
 
     // Metadata
@@ -52,12 +52,12 @@ const eventSchema = new mongoose.Schema(
   }
 );
 
-// Pre-save hook to calculate totalSeats
+// Pre-save hook to calculate totalCapacity
 eventSchema.pre('save', function (next) {
   if (this.sections && this.sections.length > 0) {
-    this.totalSeats = this.sections.reduce((acc, sec) => acc + (sec.rows * sec.cols), 0);
+    this.totalCapacity = this.sections.reduce((acc, sec) => acc + (sec.rows * sec.cols), 0);
   } else {
-    this.totalSeats = 0;
+    this.totalCapacity = 0;
   }
   next();
 });

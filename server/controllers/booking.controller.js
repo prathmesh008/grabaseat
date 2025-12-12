@@ -10,18 +10,25 @@ exports.bookTickets = async (req, res) => {
     try {
         const { eventId, tickets, paymentDetails } = req.body; // paymentDetails: { razorpay_order_id, razorpay_payment_id, razorpay_signature }
         const userId = req.userId;
-        const { getDynamicPricing } = require("../services/pricing.service");
+        // const { getDynamicPricing } = require("../services/pricing.service");
 
         // --- Payment Verification ---
-        if (paymentDetails) {
+        if (paymentDetails && paymentDetails.razorpay_payment_id && paymentDetails.razorpay_signature) {
+            console.log("Verifying Payment:", paymentDetails.razorpay_payment_id);
             const isValid = verifyPaymentSignature(
                 paymentDetails.razorpay_order_id,
                 paymentDetails.razorpay_payment_id,
                 paymentDetails.razorpay_signature
             );
             if (!isValid) {
+                console.error("Payment Signature Verification Failed!");
                 return res.status(400).send({ message: "Payment verification failed. Booking rejected." });
             }
+        } else if (paymentDetails) {
+            console.warn("Incomplete payment details received:", paymentDetails);
+            // Optionally reject or allow as fallback depending on strictness. 
+            // For now, let's treat it as failure if details are malformed but present.
+            return res.status(400).send({ message: "Incomplete payment details." });
         } else {
             console.log("Warning: Booking processed without payment details (Dev Mode)");
         }
@@ -29,13 +36,37 @@ exports.bookTickets = async (req, res) => {
         const event = await Event.findById(eventId);
         if (!event) return res.status(404).send({ message: "Event not found" });
 
+        // Add Expiry Check
+        const currentTime = new Date();
+        const eventDateTime = new Date(event.date);
+
+        // If event holds time separately (e.g., "18:00"), merge it
+        if (event.time && event.time.includes(':')) {
+            const [hours, minutes] = event.time.split(':').map(Number);
+            eventDateTime.setHours(hours, minutes, 0, 0);
+        } else {
+            // Default to end of day if only date is known? Or keep as is.
+            // Let's assume date object usually holds 00:00:00 if constructed from date string without time
+            // So setting hours is important if we want precision
+        }
+
+        if (currentTime > eventDateTime || ["COMPLETED", "CANCELLED"].includes(event.status)) {
+            return res.status(400).send({ message: "Booking closed: Event has ended or is cancelled." });
+        }
+
+        // Backfill basePrice for legacy events if missing
+        if (event.basePrice === undefined || event.basePrice === null) {
+            event.basePrice = 0;
+        }
+
         const user = await User.findById(userId);
         if (!user) return res.status(404).send({ message: "User not found" });
 
-        // --- FETCH DYNAMIC PRICING ---
-        const pricingData = await getDynamicPricing(event);
-        const dynamicMultiplier = pricingData.multiplier;
-        console.log(`Applying Dynamic Multiplier: ${dynamicMultiplier}x`);
+        // --- FETCH DYNAMIC PRICING (DISABLED) ---
+        // const pricingData = await getDynamicPricing(event);
+        // const dynamicMultiplier = pricingData.multiplier;
+        // console.log(`Applying Dynamic Multiplier: ${dynamicMultiplier}x`);
+        const dynamicMultiplier = 1; // Default to 1 (No Dynamic Pricing)
 
         let totalAmount = 0;
         const bookedTickets = [];
@@ -52,31 +83,38 @@ exports.bookTickets = async (req, res) => {
 
             section.bookedSeats.push(ticket.seatNumber);
 
-            // Calculate dynamic price for this ticket
-            const finalPrice = Math.round(section.price * dynamicMultiplier);
+            // Calculate price (Standard)
+            const finalPrice = section.price;
 
             totalAmount += finalPrice;
             bookedTickets.push({
                 sectionId: section._id,
                 sectionName: section.name,
                 seatNumber: ticket.seatNumber,
-                price: finalPrice // Store the actual price paid (dynamic)
+                price: finalPrice
             });
             seatNumbers.push(ticket.seatNumber);
         }
 
         // Update Aggregate Booked Count
-        event.bookedSeatsCount = (event.bookedSeatsCount || 0) + tickets.length;
+        event.soldCount = (event.soldCount || 0) + tickets.length;
 
         await event.save();
 
-        const booking = new Booking({
+        // Create Booking
+        const bookingData = {
             user: userId,
             event: eventId,
             tickets: bookedTickets,
             totalAmount,
             dynamicMultiplier // Lock the multiplier in history
-        });
+        };
+
+        if (paymentDetails && paymentDetails.razorpay_payment_id) {
+            bookingData.paymentId = paymentDetails.razorpay_payment_id;
+        }
+
+        const booking = new Booking(bookingData);
 
         await booking.save();
 
@@ -163,7 +201,7 @@ exports.bookTickets = async (req, res) => {
 
     } catch (error) {
         console.error("Booking error:", error);
-        res.status(500).send({ message: "Error processing booking" });
+        res.status(500).send({ message: "Error processing booking: " + error.message });
     }
 };
 

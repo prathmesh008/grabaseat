@@ -23,6 +23,7 @@ const Event = ({ searchQuery = '' }) => {
         setLoading(false)
       } catch (error) {
         console.error("Error fetching events:", error)
+        if (error.response) console.error("Response data:", error.response.data);
         setMessage(error.response?.data?.message || 'Failed to load events')
         setLoading(false)
       }

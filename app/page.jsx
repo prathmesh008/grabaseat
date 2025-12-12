@@ -49,14 +49,17 @@ const LandingPageContent = () => {
 
       if (response) {
         toast.success("Welcome back!", { description: "Login successful." });
-        const currentUser = authService.getCurrentUser().roles[0];
+        const currentUser = authService.getCurrentUser()?.roles?.[0];
 
         // Small delay for animation
         setTimeout(() => {
-          if (currentUser.includes('ROLE_USER')) {
+          if (currentUser && currentUser.includes('ROLE_USER')) {
             router.push("/user");
-          } else if (currentUser.includes('ROLE_ADMIN')) {
+          } else if (currentUser && currentUser.includes('ROLE_ADMIN')) {
             router.push('/admin/dashboard');
+          } else {
+            // Fallback if no role or unknown role
+            router.push("/user");
           }
         }, 500);
       } else {
